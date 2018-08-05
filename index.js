@@ -11,10 +11,18 @@ var disorderNames = [];
 var disordersArr = [];
 
 var content = [];
+var modesData = [];
 
 function getData(){
   jf.readFile('./disordersdata.json', function(err, obj) {
     content = obj.data;
+    loadModesData();
+  });
+}
+
+function loadModesData(){
+  jf.readFile('./a.json', function(err, obj) {
+    modesData = obj;
     processFile();
   });
 }
@@ -32,8 +40,15 @@ var parentArr = [];
 var conceptIdArr = [];
 var diseaseNameArr = [];
 
+var conceptMetaIds = [];
 
 function processDisorder(){
+  modesData.map(x=>{
+    conceptMetaIds.push(x.id)
+  })
+
+  // console.log("conceptMetaIds ", conceptMetaIds.length)
+
   content.map(x=>{
     parentArr.push(x.CUI1);
   });
@@ -45,7 +60,9 @@ function processDisorder(){
 
 
   var uniqueParentArr = Array.from(new Set(parentArr));
-  console.log(uniqueParentArr.indexOf("C0242387"))
+  console.log("uniqueParentArr", uniqueParentArr)
+  fs.writeFile('./uniqueParentIds.txt', JSON.stringify(uniqueParentArr) , 'utf-8');
+  // console.log(uniqueParentArr.indexOf("C0242387"))
   organizeData(uniqueParentArr);
 }
 
@@ -57,12 +74,17 @@ function organizeData(uniqueParentArr){
   content.map(x=>{
     if(obj[x.CUI1]===undefined){
       organizedArr.push({
-        id:x.CUI1,
+        parentId:x.CUI1,
         children: [
           {
             id:x.CUI2,
             name: getName(x.CUI2),
-            ConceptMeta: getConceptMeta(x.CUI2),
+            ConceptMeta: {
+              ModesOfInheritance: {
+                ModeOfInheritance: getConceptMeta(x.CUI2)
+              }
+            }
+            // ConceptMeta: getConceptMeta(x.CUI2),
           }
         ]
       });
@@ -74,12 +96,17 @@ function organizeData(uniqueParentArr){
         {
           id:x.CUI2,
           name: getName(x.CUI2),
-          ConceptMeta: getConceptMeta(x.CUI2),
+          ConceptMeta: {
+            ModesOfInheritance: {
+              ModeOfInheritance: getConceptMeta(x.CUI2)
+            }
+          }
+          // ConceptMeta: getConceptMeta(x.CUI2),
         }
       )
     }
   });
-  console.log(organizedArr[124])
+  // fs.writeFile('./b.json', JSON.stringify(organizedArr) , 'utf-8');
 }
 
 
@@ -88,38 +115,10 @@ function getName(item){
   return diseaseNameArr[i];
 }
 
-function getConceptMeta(concept){
-  var searchUrl = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=medgen"
-                  + '&usehistory=y&retmode=json'
-                  + '&term='
-                  + '(((' + concept +'[ConceptId]) AND "in gtr"[Filter])) AND (("conditions"[Filter] OR "diseases"[Filter]))';
-
-  var parser, xmlDoc;
-
-  axios.get(searchUrl)
-    .then(function (response) {
-      // console.log(response.data.esearchresult.idlist[0]);
-      var id = response.data.esearchresult.idlist[0];
-      var url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=medgen&id=${id}`;
-      axios.get(url)
-        .then(function(res){
-          var xml = res.data;
-          parseString(xml, function (err, result) {
-              // console.log( result.eSummaryResult.DocumentSummarySet[0].DocumentSummary[0].ConceptMeta[0]);
-              var conceptMeta =  result.eSummaryResult.DocumentSummarySet[0].DocumentSummary[0].ConceptMeta[0];
-              return conceptMeta;
-          });
-
-        })
-        .catch(function(err){
-          console.log(err);
-        })
-    })
-    .catch(function (error) {
-      console.log(error);
-    });
+function getConceptMeta(item){
+  var i = conceptMetaIds.indexOf(item);
+  return modesData[i].MetaData;
 }
-
 
 getData();
 // var arr = [];
